@@ -1,0 +1,324 @@
+﻿@page "/profile"
+@using Microsoft.AspNetCore.Authorization
+@using AuthClient.BlazorWasm.Services
+@using AuthClient.Shared.DTOs
+@attribute [Authorize]
+@inject IUserProfileService ProfileService
+@inject INotificationService NotificationService
+@inject NavigationManager Navigation
+
+<PageTitle>User Profile</PageTitle>
+
+<div class="profile-container">
+    <div class="profile-header">
+        <h2>My Profile</h2>
+        <p class="text-muted">Manage your account information</p>
+    </div>
+
+    @if (isLoading)
+    {
+        <LoadingSpinner Message="Loading profile..." />
+    }
+    else if (profile is not null)
+    {
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="card profile-card">
+                    <div class="card-body text-center">
+                        <div class="profile-avatar mb-3">
+                            <span class="avatar-initials">@GetInitials(profile.FullName ?? profile.Email)</span>
+                        </div>
+                        <h5 class="card-title">@(profile.FullName ?? "User")</h5>
+                        <p class="card-text text-muted">@profile.Email</p>
+                        <div class="profile-stats mt-4">
+                            <div class="stat-item">
+                                <span class="stat-label">Member Since</span>
+                                <span class="stat-value">@profile.CreatedAt.ToString("MMM yyyy")</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Roles</span>
+                                <span class="stat-value">@string.Join(", ", profile.Roles)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link @(activeTab == "info" ? "active" : "")" 
+                                        @onclick="() => activeTab = "info"" 
+                                        type="button" 
+                                        role="tab">
+                                    Personal Information
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link @(activeTab == "security" ? "active" : "")" 
+                                        @onclick="() => activeTab = "security"" 
+                                        type="button" 
+                                        role="tab">
+                                    Security
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        @if (activeTab == "info")
+                        {
+                            <EditForm Model="@updateModel" OnValidSubmit="@HandleUpdateProfile">
+                                <DataAnnotationsValidator />
+                                
+                                <div class="mb-3">
+                                    <label for="fullName" class="form-label">Full Name</label>
+                                    <InputText @bind-Value="updateModel.FullName" 
+                                              class="form-control" 
+                                              id="fullName" 
+                                              placeholder="Enter your full name" />
+                                    <ValidationMessage For="@(() => updateModel.FullName)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email Address</label>
+                                    <InputText @bind-Value="updateModel.Email" 
+                                              class="form-control" 
+                                              id="email" 
+                                              disabled />
+                                    <small class="form-text text-muted">Email cannot be changed</small>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button type="submit" 
+                                            class="btn btn-primary" 
+                                            disabled="@isUpdating">
+                                        @if (isUpdating)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                        }
+                                        Save Changes
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-outline-secondary" 
+                                            @onclick="ResetForm"
+                                            disabled="@isUpdating">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </EditForm>
+                        }
+                        else if (activeTab == "security")
+                        {
+                            <div class="security-section">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <div>
+                                        <h6 class="mb-1">Password</h6>
+                                        <p class="text-muted small mb-0">Manage your password settings</p>
+                                    </div>
+                                    <button class="btn btn-outline-primary" 
+                                            @onclick="NavigateToChangePassword">
+                                        Change Password
+                                    </button>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">Two-Factor Authentication</h6>
+                                        <p class="text-muted small mb-0">Add an extra layer of security</p>
+                                    </div>
+                                    <span class="badge bg-secondary">Coming Soon</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            Unable to load profile information. Please try again later.
+        </div>
+    }
+</div>
+
+<style>
+    .profile-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .profile-header {
+        margin-bottom: 2rem;
+    }
+
+    .profile-header h2 {
+        font-weight: 600;
+        color: #212529;
+        margin-bottom: 0.5rem;
+    }
+
+    .profile-card {
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+    }
+
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .avatar-initials {
+        font-size: 3rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .profile-stats {
+        display: flex;
+        justify-content: space-around;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .security-section > div {
+        padding: 1.5rem;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+    }
+
+    .security-section > div:not(:last-child) {
+        margin-bottom: 1rem;
+    }
+</style>
+
+@code {
+    private UserProfileDto? profile;
+    private UpdateProfileModel updateModel = new();
+    private bool isLoading = true;
+    private bool isUpdating = false;
+    private string activeTab = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        try
+        {
+            isLoading = true;
+            profile = await ProfileService.GetProfileAsync();
+            
+            if (profile is not null)
+            {
+                updateModel.FullName = profile.FullName;
+                updateModel.Email = profile.Email;
+            }
+        }
+        catch (Exception ex)
+        {
+            await NotificationService.ShowErrorAsync($"Failed to load profile: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleUpdateProfile()
+    {
+        isUpdating = true;
+        try
+        {
+            var result = await ProfileService.UpdateProfileAsync(updateModel);
+            
+            if (result.Success)
+            {
+                await NotificationService.ShowSuccessAsync("Profile updated successfully");
+                await LoadProfileAsync();
+            }
+            else
+            {
+                await NotificationService.ShowErrorAsync(result.Message ?? "Failed to update profile");
+            }
+        }
+        catch (Exception ex)
+        {
+            await NotificationService.ShowErrorAsync($"Error updating profile: {ex.Message}");
+        }
+        finally
+        {
+            isUpdating = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        if (profile is not null)
+        {
+            updateModel.FullName = profile.FullName;
+            updateModel.Email = profile.Email;
+        }
+    }
+
+    private void NavigateToChangePassword()
+    {
+        Navigation.NavigateTo("/change-password");
+    }
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "U";
+        
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => "U",
+            1 => parts[0][..Math.Min(2, parts[0].Length)].ToUpper(),
+            _ => $"{parts[0][0]}{parts[^1][0]}".ToUpper()
+        };
+    }
+
+    private class UpdateProfileModel
+    {
+        public string? FullName { get; set; }
+        public string Email { get; set; } = string.Empty;
+    }
+
+    private record UserProfileDto(
+        Guid Id,
+        string Email,
+        string? FullName,
+        IList<string> Roles,
+        DateTime CreatedAt);
+}

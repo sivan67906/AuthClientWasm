@@ -1,0 +1,170 @@
+@namespace AuthClient.BlazorWasm.Components
+
+<div class="toast @GetToastClass() @(IsVisible ? "show" : "")" role="alert">
+    <div class="toast-header">
+        <span class="toast-icon oi @GetIconClass()"></span>
+        <strong class="me-auto">@GetTitle()</strong>
+        <button type="button" class="btn-close" @onclick="Close"></button>
+    </div>
+    <div class="toast-body">
+        @Message
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public NotificationType Type { get; set; } = NotificationType.Info;
+
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private async Task Close()
+    {
+        IsVisible = false;
+        await OnClose.InvokeAsync();
+    }
+
+    private string GetToastClass()
+    {
+        return Type switch
+        {
+            NotificationType.Success => "toast-success",
+            NotificationType.Error => "toast-error",
+            NotificationType.Warning => "toast-warning",
+            NotificationType.Info => "toast-info",
+            _ => "toast-info"
+        };
+    }
+
+    private string GetIconClass()
+    {
+        return Type switch
+        {
+            NotificationType.Success => "oi-check",
+            NotificationType.Error => "oi-x",
+            NotificationType.Warning => "oi-warning",
+            NotificationType.Info => "oi-info",
+            _ => "oi-info"
+        };
+    }
+
+    private string GetTitle()
+    {
+        return Type switch
+        {
+            NotificationType.Success => "Success",
+            NotificationType.Error => "Error",
+            NotificationType.Warning => "Warning",
+            NotificationType.Info => "Information",
+            _ => "Notification"
+        };
+    }
+
+    public enum NotificationType
+    {
+        Success,
+        Error,
+        Warning,
+        Info
+    }
+}
+
+<style>
+    .toast {
+        position: relative;
+        max-width: 350px;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        background-color: white;
+        border: 1px solid rgba(0,0,0,0.1);
+        opacity: 0;
+        transform: translateY(-1rem);
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+    }
+
+    .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .toast-header {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .toast-icon {
+        font-size: 1.25rem;
+        margin-right: 0.75rem;
+    }
+
+    .toast-body {
+        padding: 0.75rem 1rem;
+        color: #333;
+    }
+
+    .btn-close {
+        margin-left: auto;
+        border: none;
+        background: transparent;
+        padding: 0.5rem;
+        cursor: pointer;
+        opacity: 0.5;
+        transition: opacity 0.2s;
+    }
+
+    .btn-close:hover {
+        opacity: 1;
+    }
+
+    .btn-close::before {
+        content: "×";
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+
+    .toast-success .toast-header {
+        background-color: #d4edda;
+        border-bottom-color: #c3e6cb;
+    }
+
+    .toast-success .toast-icon {
+        color: #28a745;
+    }
+
+    .toast-error .toast-header {
+        background-color: #f8d7da;
+        border-bottom-color: #f5c6cb;
+    }
+
+    .toast-error .toast-icon {
+        color: #dc3545;
+    }
+
+    .toast-warning .toast-header {
+        background-color: #fff3cd;
+        border-bottom-color: #ffeaa7;
+    }
+
+    .toast-warning .toast-icon {
+        color: #ffc107;
+    }
+
+    .toast-info .toast-header {
+        background-color: #d1ecf1;
+        border-bottom-color: #bee5eb;
+    }
+
+    .toast-info .toast-icon {
+        color: #17a2b8;
+    }
+</style>

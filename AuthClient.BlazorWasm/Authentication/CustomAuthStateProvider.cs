@@ -1,88 +1,92 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Blazored.LocalStorage;
+using AuthClient.BlazorWasm.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace AuthClient.BlazorWasm.Authentication;
 
-public class CustomAuthStateProvider : AuthenticationStateProvider
+public sealed class CustomAuthStateProvider : AuthenticationStateProvider
 {
-    private readonly ILocalStorageService _localStorage;
-    private readonly HttpClient _httpClient;
+    private readonly ITokenService _tokenService;
+    private readonly ILogger<CustomAuthStateProvider> _logger;
     private readonly AuthenticationState _anonymous;
-    private bool _isInitialized = false;
+    private bool _isInitialized;
 
-    public CustomAuthStateProvider(ILocalStorageService localStorage, HttpClient httpClient)
+    public CustomAuthStateProvider(
+        ITokenService tokenService,
+        ILogger<CustomAuthStateProvider> logger)
     {
-        _localStorage = localStorage;
-        _httpClient = httpClient;
+        _tokenService = tokenService;
+        _logger = logger;
         _anonymous = new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
     }
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
-        // Prevent multiple simultaneous calls
         if (!_isInitialized)
         {
             _isInitialized = true;
+            _logger.LogInformation("Authentication state provider initialized");
         }
 
         try
         {
-            var token = await _localStorage.GetItemAsync<string>("accessToken");
+            var token = await _tokenService.GetAccessTokenAsync();
 
             if (string.IsNullOrWhiteSpace(token))
             {
+                _logger.LogDebug("No access token found, returning anonymous state");
                 return _anonymous;
             }
 
             var claims = ParseClaimsFromJwt(token);
-            var expiry = claims.FirstOrDefault(c => c.Type == "exp")?.Value;
+            var expiryClaim = claims.FirstOrDefault(c => c.Type == "exp")?.Value;
 
-            if (expiry != null && long.TryParse(expiry, out var exp))
+            if (expiryClaim is not null && long.TryParse(expiryClaim, out var exp))
             {
                 var expiryDate = DateTimeOffset.FromUnixTimeSeconds(exp);
                 if (expiryDate < DateTimeOffset.UtcNow)
                 {
-                    // Token expired - clear storage
+                    _logger.LogWarning("Access token has expired, clearing authentication");
                     await ClearAuthenticationAsync();
                     return _anonymous;
                 }
             }
 
-            // Set authorization header
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
             var identity = new ClaimsIdentity(claims, "jwt");
             var user = new ClaimsPrincipal(identity);
+
+            var userName = user.Identity?.Name ?? "Unknown";
+            _logger.LogDebug("User authenticated: {UserName}", userName);
 
             return new AuthenticationState(user);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Auth state error: {ex.Message}");
+            _logger.LogError(ex, "Error retrieving authentication state");
             return _anonymous;
         }
     }
 
     public async Task NotifyUserAuthentication(string token)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+
         try
         {
             var claims = ParseClaimsFromJwt(token);
             var identity = new ClaimsIdentity(claims, "jwt");
             var user = new ClaimsPrincipal(identity);
 
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
             var authState = Task.FromResult(new AuthenticationState(user));
             NotifyAuthenticationStateChanged(authState);
+
+            var userName = user.Identity?.Name ?? "Unknown";
+            _logger.LogInformation("User authenticated and state updated: {UserName}", userName);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Notify authentication error: {ex.Message}");
+            _logger.LogError(ex, "Error notifying user authentication");
         }
     }
 
@@ -93,10 +97,12 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
             await ClearAuthenticationAsync();
             var authState = Task.FromResult(_anonymous);
             NotifyAuthenticationStateChanged(authState);
+
+            _logger.LogInformation("User logged out and authentication state cleared");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Notify logout error: {ex.Message}");
+            _logger.LogError(ex, "Error notifying user logout");
         }
     }
 
@@ -104,17 +110,16 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
     {
         try
         {
-            await _localStorage.RemoveItemAsync("accessToken");
-            await _localStorage.RemoveItemAsync("refreshToken");
-            _httpClient.DefaultRequestHeaders.Authorization = null;
+            await _tokenService.ClearTokensAsync();
+            _logger.LogDebug("Authentication tokens cleared");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Clear authentication error: {ex.Message}");
+            _logger.LogError(ex, "Error clearing authentication");
         }
     }
 
-    private static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
+    private IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {
         try
         {
@@ -124,7 +129,7 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Parse JWT error: {ex.Message}");
+            _logger.LogError(ex, "Error parsing JWT claims");
             return Enumerable.Empty<Claim>();
         }
     }

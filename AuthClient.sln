@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11123.170 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthClient.BlazorWasm", "AuthClient.BlazorWasm\AuthClient.BlazorWasm.csproj", "{F6A7B8C9-D0E1-4F2A-3B4C-5D6E7F8A9B0C}"
 EndProject
@@ -20,5 +20,11 @@ Global
 		{A7B8C9D0-E1F2-4A3B-4C5D-6E7F8A9B0C1D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7B8C9D0-E1F2-4A3B-4C5D-6E7F8A9B0C1D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A7B8C9D0-E1F2-4A3B-4C5D-6E7F8A9B0C1D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3E7CFE04-BE45-4C73-9AE4-E7CE338418EE}
 	EndGlobalSection
 EndGlobal

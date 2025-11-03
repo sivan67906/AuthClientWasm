@@ -1,0 +1,136 @@
+@namespace AuthClient.BlazorWasm.Components
+@using AuthClient.BlazorWasm.Services
+@implements IDisposable
+@inject INotificationService NotificationService
+
+<div class="notification-container @Position">
+    @foreach (var notification in notifications)
+    {
+        <Toast Message="@notification.Message"
+               Type="@notification.Type"
+               IsVisible="@notification.IsVisible"
+               OnClose="@(() => RemoveNotification(notification))" />
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Position { get; set; } = "top-right";
+
+    private readonly List<NotificationModel> notifications = new();
+    private readonly int maxNotifications = 5;
+
+    protected override void OnInitialized()
+    {
+        NotificationService.OnNotification += HandleNotification;
+    }
+
+    private void HandleNotification(string message, Toast.NotificationType type, int duration)
+    {
+        var notification = new NotificationModel
+        {
+            Id = Guid.NewGuid(),
+            Message = message,
+            Type = type,
+            IsVisible = true
+        };
+
+        notifications.Insert(0, notification);
+
+        if (notifications.Count > maxNotifications)
+        {
+            notifications.RemoveAt(notifications.Count - 1);
+        }
+
+        StateHasChanged();
+
+        Task.Delay(duration).ContinueWith(_ => RemoveNotification(notification));
+    }
+
+    private void RemoveNotification(NotificationModel notification)
+    {
+        notification.IsVisible = false;
+        StateHasChanged();
+
+        Task.Delay(300).ContinueWith(_ =>
+        {
+            notifications.Remove(notification);
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnNotification -= HandleNotification;
+    }
+
+    private sealed class NotificationModel
+    {
+        public required Guid Id { get; init; }
+        public required string Message { get; init; }
+        public required Toast.NotificationType Type { get; init; }
+        public required bool IsVisible { get; set; }
+    }
+}
+
+<style>
+    .notification-container {
+        position: fixed;
+        z-index: 9999;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .notification-container > * {
+        pointer-events: auto;
+    }
+
+    .top-right {
+        top: 1rem;
+        right: 1rem;
+    }
+
+    .top-left {
+        top: 1rem;
+        left: 1rem;
+    }
+
+    .top-center {
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .bottom-right {
+        bottom: 1rem;
+        right: 1rem;
+    }
+
+    .bottom-left {
+        bottom: 1rem;
+        left: 1rem;
+    }
+
+    .bottom-center {
+        bottom: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    @@media (max-width: 576px) {
+        .notification-container {
+            left: 0.5rem;
+            right: 0.5rem;
+            width: auto;
+        }
+
+        .top-center,
+        .bottom-center {
+            left: 0.5rem;
+            right: 0.5rem;
+            transform: none;
+        }
+    }
+</style>
